@@ -663,6 +663,7 @@ Verification: `/plugin list` shows `bb-triage` at the new version. The change is
 | 2 | Phase 2 complete | ✅ |
 | 2 | 2.4 Build and install locally from sandbox | ✅ |
 | 2 | 2.5 Test the reload cycle | ✅ |
+| - | **Next session: skill refinement** — `git checkout -b feat/bb-triage-instance-provision` before editing skill files. Merge back to `main` before starting Phase 3. | |
 | 3 | 3.1 Create release branch with concrete placeholder | |
 | 3 | 3.2 Set release as GitHub default branch | |
 | 3 | 3.3 Write validate.yml | |
