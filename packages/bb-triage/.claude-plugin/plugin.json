@@ -1,0 +1,6 @@
+{
+  "name": "bb-triage",
+  "version": "0.1.0",
+  "description": "Bug bounty triage - eliminating duplicates, reproduce the steps, validating the bug, submit jira ticket for engineering",
+  "author": { "name": "Abhijit Sinha" }
+}

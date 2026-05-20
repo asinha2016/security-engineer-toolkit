@@ -216,3 +216,8 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Security engineer toolkit
+.claude/
+**/.DS_Store
+run_artifacts/

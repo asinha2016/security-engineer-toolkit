@@ -1,0 +1,28 @@
+# instance-provision configuration
+# Skill: instance-provision (bb-triage plugin)
+# Current implementation: Shamu Splunk REST API (see agents/shamu-provisioner.md)
+
+# Shamu API base URL. Change if using a staging or dev Shamu environment.
+api_base_url: https://shamu.splunkeng.com/v1
+
+# Shamu API documentation URL — consulted by the agent when troubleshooting API errors.
+api_docs: https://shamu.splunkeng.com/api/doc
+
+# Default cloud provider when --cloud is not passed at invocation.
+# Supported values: kubernetes, aws-ec2
+default_cloud: kubernetes
+
+# Path to the Shamu SSH private key on disk.
+ssh_key_path: ~/.ssh/SHAMU_PRIVATE_KEY
+
+# How long (in hours) before a provisioned instance expires.
+# Used to compute the expires_at field in the artifact.
+instance_ttl_hours: 4
+
+# Directory where provisioning artifacts are written.
+# Path is relative to the project working directory.
+artifact_dir: run_artifacts/instance-provision
+
+# Model used by the provisioning sub-agent.
+# Supported values: opus, sonnet, haiku
+model: sonnet
