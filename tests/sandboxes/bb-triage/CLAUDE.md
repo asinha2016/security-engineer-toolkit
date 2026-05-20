@@ -47,6 +47,22 @@ Then repeat Approach B setup.
 
 ---
 
+## Editing the plugin source
+
+If you identify a gap during a skill run, read only the file directly relevant to the gap — do not read the entire plugin directory. Do not suggest changes from memory — always read the file first.
+
+Replace `<skill-name>` with the skill that has the gap (e.g. `instance-provision`):
+
+| Gap type | File to read |
+|---|---|
+| Skill logic or argument parsing | `/Users/abhijis3/Documents/GitHub/security-engineer-toolkit/packages/bb-triage/skills/<skill-name>/SKILL.md` |
+| Config values or defaults | `/Users/abhijis3/Documents/GitHub/security-engineer-toolkit/packages/bb-triage/skills/<skill-name>/config/config.yaml` |
+| Helper script behavior | `/Users/abhijis3/Documents/GitHub/security-engineer-toolkit/packages/bb-triage/skills/<skill-name>/scripts/<script-name>.sh` |
+| Artifact template output | `/Users/abhijis3/Documents/GitHub/security-engineer-toolkit/packages/bb-triage/skills/<skill-name>/templates/<template-name>.tmpl` |
+| Agent steps or guardrails | First read the skill's SKILL.md to find which agent it dispatches to, then read `/Users/abhijis3/Documents/GitHub/security-engineer-toolkit/packages/bb-triage/agents/<agent-name>.md` |
+
+---
+
 ## Test scenarios
 
 Each skill has its own subfolder here with a `plan.md` that describes what the skill should do and what a passing run looks like.

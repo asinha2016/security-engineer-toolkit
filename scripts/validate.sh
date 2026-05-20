@@ -29,6 +29,26 @@ check_frontmatter_key() {
   fi
 }
 
+# Verify every sandbox has a matching plugin source
+for sandbox_dir in "$REPO_ROOT/tests/sandboxes"/*/; do
+  [ -d "$sandbox_dir" ] || continue
+  plugin_name=$(basename "$sandbox_dir")
+  [ "$plugin_name" = ".DS_Store" ] && continue
+  if [ ! -d "$REPO_ROOT/packages/$plugin_name" ]; then
+    error "sandbox '$plugin_name' references a plugin source that does not exist at packages/$plugin_name"
+  fi
+done
+
+# Warn if a plugin has no sandbox (dev-only check, does not fail validation)
+for plugin_dir in "$PACKAGES_DIR"/*/; do
+  [ -d "$plugin_dir" ] || continue
+  plugin_name=$(basename "$plugin_dir")
+  [ "$plugin_name" = ".DS_Store" ] && continue
+  if [ ! -d "$REPO_ROOT/tests/sandboxes/$plugin_name" ]; then
+    echo "WARNING: plugin '$plugin_name' has no sandbox under tests/sandboxes/" >&2
+  fi
+done
+
 for plugin_dir in "$PACKAGES_DIR"/*/; do
   [ -d "$plugin_dir" ] || continue
   plugin_name=$(basename "$plugin_dir")
