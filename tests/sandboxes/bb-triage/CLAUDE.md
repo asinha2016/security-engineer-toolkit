@@ -1,23 +1,6 @@
 # bb-triage test sandbox
 
-## Approach A — Development (fast iteration)
-
-Use this while actively building or editing skills. No install required — plugin is session-scoped.
-
-From the repo root, build and launch:
-
-    bash scripts/build.sh
-    claude --plugin-dir ./dist/plugins/bb-triage
-
-After any edit, rebuild and reload without restarting:
-
-    # separate terminal
-    bash scripts/build.sh
-
-    # back in Claude Code session
-    /reload-plugins
-
-## Approach B — Marketplace install (test the customer flow)
+## Marketplace install
 
 Use this to verify the full install flow works end-to-end, the same way a customer would.
 
@@ -43,7 +26,7 @@ After any edit:
     /plugin uninstall bb-triage
     /plugin marketplace remove greyshell
 
-Then repeat Approach B setup.
+Then repeat the setup above.
 
 ---
 
@@ -67,9 +50,9 @@ Replace `<skill-name>` with the skill that has the gap (e.g. `instance-provision
 
 Each skill has its own subfolder here with a `plan.md` that describes what the skill should do and what a passing run looks like.
 
-| Skill | Plan | Invoke (Approach A) | Invoke (Approach B) |
-|---|---|---|---|
-| instance-provision | [instance-provision/plan.md](instance-provision/plan.md) | `/bb-triage:instance-provision` | `/bb-triage:instance-provision` |
+| Skill | Plan | Invoke |
+|---|---|---|
+| instance-provision | [instance-provision/plan.md](instance-provision/plan.md) | `/bb-triage:instance-provision` |
 
 ## Adding a new skill
 
