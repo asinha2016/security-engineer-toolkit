@@ -326,33 +326,22 @@ Verification: `ls tests/sandboxes/` shows all three sandbox directories.
 
 ### Step 2.2 — Write sandbox `CLAUDE.md` files (Model A)
 
-Each sandbox `CLAUDE.md` documents the loop: build → install/reload → run.
+Each sandbox `CLAUDE.md` documents the loop: build → install/reload → run. It must also cover: checking current install state, reset instructions (uninstall + re-add marketplace), and a skills table that grows as skills are added.
 
-Example for `bb-triage`:
-```markdown
-# bb-triage test sandbox
+**Skill plan convention (decided during implementation):** Each skill gets its own subfolder under the sandbox with a `plan.md` design doc before any code is written. Structure:
 
-## First-time setup
-From the repo root, run a build:
-
-    bash scripts/build.sh
-
-Then in this sandbox directory in Claude Code:
-
-    /plugin marketplace add ../../../dist
-    /plugin install bb-triage@greyshell
-
-## After editing the plugin source on main
-1. Repo root: `bash scripts/build.sh`
-2. This sandbox: `/plugin reload bb-triage`
-
-## Test scenario
-Use fixture: tests/fixtures/jira-tickets/sample-high.json
-Skill: instance-provision
-Expected: instance provisioned successfully, artifact written to run_artifacts/
+```
+tests/sandboxes/bb-triage/
+  CLAUDE.md
+  instance-provision/
+    plan.md       ← design doc; written first, then pointed at Claude to implement
+  <next-skill>/
+    plan.md
 ```
 
-Verification: Each sandbox `CLAUDE.md` has Setup, Reload, and Test scenario sections, all using Model A (install from `../../../dist`).
+The `CLAUDE.md` skills table links to each `plan.md` and lists the invocation command. When adding a new skill, create the subfolder and `plan.md` first, add a row to the table, then implement.
+
+Verification: Each sandbox `CLAUDE.md` has Check state, Setup, Reload, Reset, Test scenarios table, and Adding a new skill sections, all using Model A (install from `../../../dist`).
 
 ---
 
@@ -368,20 +357,27 @@ Verification: All three files exist; the JSONs parse with `jq .`.
 
 ---
 
-### Step 2.4 — Run build, then install locally from sandbox
+### Step 2.4 — Run build, then load the plugin
 
-From repo root:
+There are two valid approaches — both use `dist/`, `/reload-plugins` is the reload command in both cases.
+
+**Approach A — Development (fast iteration, session-scoped, no install):**
 ```bash
 bash scripts/build.sh
+claude --plugin-dir ./dist/plugins/bb-triage
 ```
 
-Open `tests/sandboxes/bb-triage/` in Claude Code and run:
-```
+**Approach B — Marketplace install (tests the full customer flow, persists across sessions):**
+```bash
+bash scripts/build.sh
+# then inside Claude Code opened in tests/sandboxes/bb-triage/:
 /plugin marketplace add ../../../dist
 /plugin install bb-triage@greyshell
 ```
 
-Verification: Claude Code confirms the plugin installed. `/plugin list` shows `bb-triage` as installed.
+Use Approach A while building skills. Use Approach B to verify the install flow works end-to-end before shipping.
+
+Verification (both): `/help` lists `bb-triage` skills under the plugin namespace.
 
 ---
 
@@ -389,17 +385,17 @@ Verification: Claude Code confirms the plugin installed. `/plugin list` shows `b
 
 Edit `packages/bb-triage/skills/instance-provision/SKILL.md` — change one word in the description.
 
-Rebuild:
+Rebuild in a separate terminal:
 ```bash
 bash scripts/build.sh
 ```
 
-In the sandbox:
+In the running Claude Code session:
 ```
-/plugin reload bb-triage
+/reload-plugins
 ```
 
-Verification: The skill description visible inside Claude Code reflects the edit, without a reinstall.
+Verification: The skill description reflects the edit without restarting Claude Code.
 
 ---
 
@@ -656,16 +652,17 @@ Verification: `/plugin list` shows `bb-triage` at the new version. The change is
 | 1 | 1.6 Research and record marketplace.json schema | ✅ |
 | 1 | 1.7 Write scripts/validate.sh | ✅ |
 | 1 | 1.8 Write scripts/build.sh | ✅ |
-| 1 | 1.9 Update .gitignore | |
-| 1 | 1.10 Update CLAUDE.md dev guide | |
-| 1.5 | 1.5.1 Scaffold owasp-audit and secret-scanner | |
-| 1.5 | 1.5.2 Fill in their stubs | |
-| 1.5 | 1.5.3 Re-run validate + build | |
-| 2 | 2.1 Scaffold tests/ directory | |
-| 2 | 2.2 Write sandbox CLAUDE.md files (Model A) | |
-| 2 | 2.3 Write stub fixtures | |
-| 2 | 2.4 Build and install locally from sandbox | |
-| 2 | 2.5 Test the reload cycle | |
+| 1 | 1.9 Update .gitignore | ✅ |
+| 1 | 1.10 Update CLAUDE.md dev guide | ✅ |
+| 1.5 | 1.5.1 Scaffold owasp-audit and secret-scanner | skipped (bb-triage focus) |
+| 1.5 | 1.5.2 Fill in their stubs | skipped (bb-triage focus) |
+| 1.5 | 1.5.3 Re-run validate + build | skipped (bb-triage focus) |
+| 2 | 2.1 Scaffold tests/ directory | ✅ |
+| 2 | 2.2 Write sandbox CLAUDE.md files (Model A) | ✅ |
+| 2 | 2.3 Write stub fixtures | skipped (no fixtures needed yet) |
+| 2 | Phase 2 complete | ✅ |
+| 2 | 2.4 Build and install locally from sandbox | ✅ |
+| 2 | 2.5 Test the reload cycle | ✅ |
 | 3 | 3.1 Create release branch with concrete placeholder | |
 | 3 | 3.2 Set release as GitHub default branch | |
 | 3 | 3.3 Write validate.yml | |

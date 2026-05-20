@@ -1,6 +1,6 @@
 ---
 name: instance-provision
-description: Provision a live instance to reproduce a researcher-reported bug, or tear one down. First skill of the bb-triage plugin — gives you a running target to validate the steps to reproduce. Currently dispatches to the Shamu Splunk provisioner.
+description: Provision a live instance to reproduce a researcher or customer reported bug, or tear one down. First skill of the bb-triage plugin — gives you a running target to validate the steps to reproduce. Currently dispatches to the Shamu Splunk provisioner.
 ---
 
 # instance-provision
@@ -35,7 +35,7 @@ Read `.claude/skills/instance-provision/config/config.yaml` and extract:
 - `default_cloud` — default to `kubernetes` if missing; used as cloudValue when `--cloud` is not passed
 - `ssh_key_path` — default to `~/.ssh/SHAMU_PRIVATE_KEY` if missing
 - `instance_ttl_hours` — default to `4` if missing
-- `artifact_dir` — default to `run_artifacts/instance-provision` if missing
+- `artifact_dir` — default to `reports/instance-provision` if missing
 - `model` — default to `sonnet` if missing
 
 Then call the Agent tool with:

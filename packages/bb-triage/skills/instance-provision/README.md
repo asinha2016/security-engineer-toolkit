@@ -59,7 +59,7 @@ The Shamu SSH private key must be present at the path set by `ssh_key_path` in `
 2. Authenticates with the Shamu API (`GET /v1/token`)
 3. Submits a create job (`POST /v1/jobs`)
 4. Polls until ready (max 10 minutes)
-5. Writes a YAML artifact to `run_artifacts/instance-provision/<version>_<job_prefix>.yaml`
+5. Writes a YAML artifact to `reports/instance-provision/<version>_<job_prefix>.yaml`
 6. Prints connection details
 
 ### Teardown
@@ -94,7 +94,7 @@ ssh_key_path: ~/.ssh/SHAMU_PRIVATE_KEY
 instance_ttl_hours: 4
 
 # Output directory for provisioning artifacts (relative to project root)
-artifact_dir: run_artifacts/instance-provision
+artifact_dir: reports/instance-provision
 
 # Model used by the provisioning sub-agent: opus, sonnet, haiku
 model: sonnet
@@ -111,7 +111,7 @@ The artifact contains the deployment ID, host, all port mappings, SSH command, a
 /instance-provision --teardown <deployment_id>
 ```
 
-> **Security:** Artifact files contain instance credentials. The default `run_artifacts/` directory is gitignored. If you change `artifact_dir`, make sure to add the new path to `.gitignore` before committing. The `artifact_dir` is created automatically if it does not exist.
+> **Security:** Artifact files contain instance credentials. The default `reports/` directory is gitignored. If you change `artifact_dir`, make sure to add the new path to `.gitignore` before committing. The `artifact_dir` is created automatically if it does not exist.
 
 ### Artifact states
 

@@ -21,7 +21,7 @@ instance_ttl_hours: 4
 
 # Directory where provisioning artifacts are written.
 # Path is relative to the project working directory.
-artifact_dir: run_artifacts/instance-provision
+artifact_dir: reports/instance-provision
 
 # Model used by the provisioning sub-agent.
 # Supported values: opus, sonnet, haiku
