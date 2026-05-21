@@ -1,17 +1,12 @@
 #!/usr/bin/env bash
 set -e
-HOOKS_DIR=".git/hooks"
 
-install_hook() {
-  local name="$1"
-  local src="scripts/hooks/$name"
-  local dst="$HOOKS_DIR/$name"
-  cp "$src" "$dst"
-  chmod +x "$dst"
-  echo "Installed $dst"
-}
+# Point git at the tracked .githooks/ directory.
+# Idempotent: re-running is a no-op once configured.
+git config core.hooksPath .githooks
+echo "core.hooksPath set to .githooks"
 
-install_hook commit-msg
-install_hook pre-push
-install_hook post-merge
-echo "All hooks installed."
+# Clean up any stale copies left behind by the old install pattern.
+# Safe — only touches the three names this repo manages.
+rm -f .git/hooks/commit-msg .git/hooks/pre-push .git/hooks/post-merge
+echo "Removed any stale copies from .git/hooks/"

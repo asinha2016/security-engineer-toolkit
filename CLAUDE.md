@@ -74,7 +74,8 @@ Run once after cloning:
 
     bash scripts/install-hooks.sh
 
-Installs three hooks:
+Points git at the tracked `.githooks/` directory (one-time per clone, idempotent). The tracked files are the live hooks — no copy step, no drift.
+
 - `commit-msg` — rejects commits that don't follow Conventional Commits; blocks silent release-please no-ops
 - `pre-push` — runs `validate.sh` before any push to `main`; blocks on failure
 - `post-merge` — rebuilds `dist/` after every merge so your local sandbox stays current

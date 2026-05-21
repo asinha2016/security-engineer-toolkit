@@ -600,9 +600,9 @@ Verification: The manual release section exists in `CLAUDE.md`.
 
 ### Step 3.7 — Write local git hooks (`pre-push` + `post-merge`)
 
-Two hooks live in `.git/hooks/`. They are not committed to the repo (`.git/` is never tracked), so each developer installs them once by running `bash scripts/install-hooks.sh`.
+Hooks live in `.githooks/` at the repo root — committed, executable (mode `100755` in the git index). Git is pointed at this directory via `git config core.hooksPath .githooks`, so the tracked file is the live hook. No copy step; no drift. Each developer runs `bash scripts/install-hooks.sh` once after cloning.
 
-**`.git/hooks/pre-push`** — blocks pushes to `main` if `validate.sh` fails:
+**`.githooks/pre-push`** — blocks pushes to `main` if `validate.sh` fails:
 
 ```bash
 #!/usr/bin/env bash
@@ -618,7 +618,7 @@ if [ "$current_branch" = "$protected_branch" ]; then
 fi
 ```
 
-**`.git/hooks/post-merge`** — rebuilds `dist/` automatically after every merge:
+**`.githooks/post-merge`** — rebuilds `dist/` automatically after every merge:
 
 ```bash
 #!/usr/bin/env bash
@@ -630,23 +630,24 @@ bash scripts/validate.sh && bash scripts/build.sh \
 
 Note: `post-merge` exit code does not undo the merge, so a failed rebuild is a warning, not a blocker. The `pre-push` hook is the hard gate.
 
-**`.git/hooks/commit-msg`** — rejects commits whose message does not follow Conventional Commits:
+**`.githooks/commit-msg`** — rejects commits whose message does not follow Conventional Commits:
 
 ```bash
 #!/usr/bin/env bash
-msg=$(cat "$1")
+# Validate only the subject line (first line), not the body.
+subject=$(head -1 "$1")
 
 # Skip merge commits and release-please's own commits
-echo "$msg" | grep -qE "^(Merge |chore: release)" && exit 0
+echo "$subject" | grep -qE "^(Merge |chore: release)" && exit 0
 
 pattern='^(feat|fix|chore|docs|refactor|ci|test)(\([a-z0-9-]+\))?(!)?: .{1,72}$'
 
-if ! echo "$msg" | grep -qE "$pattern"; then
+if ! echo "$subject" | grep -qE "$pattern"; then
   echo ""
   echo "ERROR: commit message does not follow Conventional Commits."
   echo ""
   echo "  Expected:  <type>(<scope>): <description>"
-  echo "  Got:       $msg"
+  echo "  Got:       $subject"
   echo ""
   echo "  Examples:"
   echo "    feat(bb-triage): add CVSS scoring to instance-provision"
@@ -669,24 +670,19 @@ Without this hook a malformed message like `added cvss scoring` silently reaches
 ```bash
 #!/usr/bin/env bash
 set -e
-HOOKS_DIR=".git/hooks"
 
-install_hook() {
-  local name="$1"
-  local src="scripts/hooks/$name"
-  local dst="$HOOKS_DIR/$name"
-  cp "$src" "$dst"
-  chmod +x "$dst"
-  echo "Installed $dst"
-}
+# Point git at the tracked .githooks/ directory.
+# Idempotent: re-running is a no-op once configured.
+git config core.hooksPath .githooks
+echo "core.hooksPath set to .githooks"
 
-install_hook commit-msg
-install_hook pre-push
-install_hook post-merge
-echo "All hooks installed."
+# Clean up any stale copies left behind by the old install pattern.
+# Safe — only touches the three names this repo manages.
+rm -f .git/hooks/commit-msg .git/hooks/pre-push .git/hooks/post-merge
+echo "Removed any stale copies from .git/hooks/"
 ```
 
-Store the hook source files at `scripts/hooks/commit-msg`, `scripts/hooks/pre-push`, and `scripts/hooks/post-merge` (committed, not executable in-repo — `install-hooks.sh` sets the bit). `.git/hooks/` itself is never committed.
+Hook source files live at `.githooks/{commit-msg,pre-push,post-merge}`, committed with executable bit set via `git update-index --chmod=+x`. `.git/hooks/` itself is never committed.
 
 Add to `CLAUDE.md` dev guide:
 
@@ -697,15 +693,16 @@ Run once after cloning:
 
     bash scripts/install-hooks.sh
 
-Installs three hooks:
+Points git at the tracked `.githooks/` directory (one-time per clone, idempotent). The tracked files are the live hooks — no copy step, no drift.
+
 - `commit-msg` — rejects commits that don't follow Conventional Commits; blocks silent release-please no-ops
 - `pre-push` — runs `validate.sh` before any push to `main`; blocks on failure
 - `post-merge` — rebuilds `dist/` after every merge so your local sandbox stays current
 ```
 
 Verification:
-1. `ls scripts/hooks/` shows `commit-msg`, `pre-push`, and `post-merge`.
-2. Run `bash scripts/install-hooks.sh` — confirm all three exist in `.git/hooks/` and are executable (`-rwxr-xr-x`).
+1. `ls .githooks/` shows `commit-msg`, `pre-push`, and `post-merge`; `git ls-files --stage .githooks/` shows mode `100755` for all three.
+2. Run `bash scripts/install-hooks.sh` — confirm `git config core.hooksPath` prints `.githooks`; confirm `.git/hooks/commit-msg`, `.git/hooks/pre-push`, `.git/hooks/post-merge` no longer exist.
 3. Commit-msg gate: try `git commit -m "added cvss scoring"` — confirm it is rejected with the format error. Retry with `git commit -m "feat(bb-triage): add CVSS scoring"` — confirm it passes.
 4. Pre-push gate: break `plugin.json`, try `git push origin main` — confirm it is blocked with the validate error. Restore and retry — confirm the push proceeds.
 5. Post-merge trigger: merge any branch into `main` locally — confirm `dist/` is rebuilt (check the timestamp on `dist/.claude-plugin/marketplace.json`).
@@ -822,7 +819,7 @@ Verification: `/plugin list` shows `bb-triage` at the new version. The change is
 | 3 | 3.4 Write release-please config files (bb-triage only, with extra-files) | ✅ |
 | 3 | 3.5 Write release.yml (single workflow, Job A + Job B, smoke test) | ✅ |
 | 3 | 3.6 Document manual release fallback | ✅ |
-| 3 | 3.7 Write `scripts/hooks/commit-msg`, `pre-push`, `post-merge` + `install-hooks.sh` | ✅ |
+| 3 | 3.7 Write `.githooks/{commit-msg,pre-push,post-merge}` + `install-hooks.sh` (core.hooksPath) | ✅ |
 | 3 | 3.7 Update `CLAUDE.md` with hook install instructions | ✅ |
 | 4 | 4.1 Verify release is default on GitHub | |
 | 4 | 4.2 Open fresh session | |
