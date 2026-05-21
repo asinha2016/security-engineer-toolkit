@@ -4,6 +4,7 @@ set -e
 # Point git at the tracked .githooks/ directory.
 # Idempotent: re-running is a no-op once configured.
 git config core.hooksPath .githooks
+chmod +x .githooks/commit-msg .githooks/pre-push .githooks/post-merge
 echo "core.hooksPath set to .githooks"
 
 # Clean up any stale copies left behind by the old install pattern.
