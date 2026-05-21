@@ -57,7 +57,7 @@ If the release workflow fails, publish manually from your laptop:
     bash scripts/validate.sh
     bash scripts/build.sh
     STAGING=$(mktemp -d)
-    cp -R dist/* "$STAGING/"
+    cp -R dist/. "$STAGING/"
 
     # 4. Publish to release branch
     git checkout release
