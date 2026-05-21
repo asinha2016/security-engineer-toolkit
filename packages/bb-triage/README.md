@@ -1,6 +1,6 @@
 # bb-triage
 
-Bug bounty triage plugin for Claude Code. Helps a security engineer eliminate duplicates, reproduce researcher-reported steps on a live instance, validate the bug, and submit a Jira ticket to engineering.
+Bug bounty triage plugin for Claude Code. Helps a security engineer deduplicate reports, reproduce researcher-reported steps on a live instance, validate the bug, and submit a Jira ticket to engineering.
 
 ## Skills
 
