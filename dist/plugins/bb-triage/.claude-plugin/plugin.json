@@ -1,8 +1,0 @@
-{
-  "name": "bb-triage",
-  "version": "0.1.1",
-  "description": "Bug bounty triage — deduplicate reports, reproduce steps, validate bugs, submit Jira tickets for engineering",
-  "author": {
-    "name": "Abhijit Sinha"
-  }
-}
