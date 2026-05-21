@@ -1,0 +1,35 @@
+# To teardown: /instance-provision --teardown __DEPLOYMENT_ID__
+job_id: "__JOB_ID__"
+deployment_id: "__DEPLOYMENT_ID__"
+state: "ready"
+splunk_version: __SPLUNK_VERSION_OR_NULL__
+splunk_build: __SPLUNK_BUILD_OR_NULL__
+cloud: "__CLOUD__"
+provisioned_at: "__TIMESTAMP__"
+expires_at: "__EXPIRES__"
+
+host: "__HOST__"
+role: "__ROLE__"
+cluster: "__CLUSTER__"
+namespace: "__NAMESPACE__"
+platform: "__PLATFORM__"
+
+splunk_web: "http://__HOST__:__PORT_WEB__"
+splunkd_api: "https://__HOST__:__PORT_SPLUNKD__"
+hec_endpoint: "http://__HOST__:__PORT_HEC__"
+ssh: "ssh -p __PORT_SSH__ -i __SSH_KEY_PATH__ ansible@__HOST__"
+
+credentials:
+  username: admin
+  password: Chang3d!
+
+ports:
+  splunk_web: "__HOST__:__PORT_WEB__"
+  splunkd:    "__HOST__:__PORT_SPLUNKD__"
+  hec:        "__HOST__:__PORT_HEC__"
+  ssh:        "__HOST__:__PORT_SSH__"
+  syslog_tcp: "__HOST__:__PORT_SYSLOG__"
+  s2s:        "__HOST__:__PORT_S2S__"
+
+container_id: "__CONTAINER_ID__"
+run_id: "__RUN_ID__"
