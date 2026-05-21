@@ -40,8 +40,11 @@ jobs:
         run: |
           STAGING=$(mktemp -d)
           bash scripts/build.sh
-          cp -R dist/* "$STAGING/"
+          cp -R dist/. "$STAGING/"
           echo "STAGING=$STAGING" >> "$GITHUB_ENV"
+
+      - name: Smoke test — plugins array must be non-empty
+        run: jq -e '.plugins | length > 0' "$STAGING/.claude-plugin/marketplace.json"
 
       - name: Switch to release branch and publish
         run: |
@@ -53,6 +56,3 @@ jobs:
           git add -A
           git commit -m "chore(release): publish $GITHUB_SHA"
           git push origin release
-
-      - name: Smoke test — plugins array must be non-empty
-        run: jq -e '.plugins | length > 0' .claude-plugin/marketplace.json
