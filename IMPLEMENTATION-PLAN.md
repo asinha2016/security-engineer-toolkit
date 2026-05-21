@@ -419,7 +419,9 @@ mkdir -p .claude-plugin
 
 cat > .claude-plugin/marketplace.json <<'EOF'
 {
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "greyshell",
+  "description": "Security engineer plugins for Claude Code",
   "owner": { "name": "Abhijit Sinha" },
   "plugins": []
 }
@@ -469,6 +471,22 @@ Verification: Open a PR that breaks `plugin.json` (delete a required field). The
 
 ---
 
+### Step 3.3.1 — Enforce `validate` as a required status check on `main`
+
+After the first successful run of the validate workflow (Step 3.3 verification above):
+
+GitHub → Settings → Branches → Add branch protection rule:
+- Branch name pattern: `main`
+- ✅ Require status checks to pass before merging
+- Search and select: `validate` (the job name from `validate.yml`)
+- ✅ Require branches to be up to date before merging
+
+This is a one-time manual step in the GitHub web UI. Without it the workflow runs but cannot block merges.
+
+Verification: Attempt to merge a PR whose `validate` check is failing — GitHub blocks the merge with "Required status checks are failing."
+
+---
+
 ### Step 3.4 — Write `release-please-config.json` and `.release-please-manifest.json`
 
 `release-please-config.json`:
@@ -476,21 +494,29 @@ Verification: Open a PR that breaks `plugin.json` (delete a required field). The
 {
   "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
   "packages": {
-    "packages/bb-triage":      { "release-type": "simple", "package-name": "bb-triage" },
-    "packages/owasp-audit":    { "release-type": "simple", "package-name": "owasp-audit" },
-    "packages/secret-scanner": { "release-type": "simple", "package-name": "secret-scanner" }
+    "packages/bb-triage": {
+      "release-type": "simple",
+      "package-name": "bb-triage",
+      "extra-files": [
+        { "type": "json", "path": ".claude-plugin/plugin.json", "jsonpath": "$.version" }
+      ]
+    }
   }
 }
 ```
 
+Note: `owasp-audit` and `secret-scanner` are intentionally omitted — they don't exist yet (Phase 1.5 was skipped). Add entries for them only after completing Phase 1.5 and confirming `packages/owasp-audit/` and `packages/secret-scanner/` exist on disk.
+
+The `extra-files` entry with `"type": "json"` and `"jsonpath": "$.version"` is required because `release-type: simple` updates a `version.txt` file by default. Without this directive, release-please will never touch `plugin.json` and the marketplace will stay at `0.1.0` forever.
+
 `.release-please-manifest.json`:
 ```json
 {
-  "packages/bb-triage": "0.1.0",
-  "packages/owasp-audit": "0.1.0",
-  "packages/secret-scanner": "0.1.0"
+  "packages/bb-triage": "0.1.0"
 }
 ```
+
+Note: Only `bb-triage` for now. Add the other two when Phase 1.5 is complete.
 
 Verification: Both files exist and `jq .` parses them cleanly.
 
@@ -498,27 +524,29 @@ Verification: Both files exist and `jq .` parses them cleanly.
 
 ### Step 3.5 — Write `.github/workflows/release.yml` (build outside the worktree)
 
-Triggered on: push to `main` (release-please opens its PR), and on merge of a release-please PR (release-please tags + creates a GitHub release, which our workflow watches for).
+Triggered on: `push` to `main` only.
 
-Two jobs:
+Both jobs live in the **same workflow file and same workflow run**. This is critical: GitHub does not fire downstream workflow runs for events triggered by the default `GITHUB_TOKEN`. Splitting into two separate workflows triggered by different events (e.g., one on `push`, one on `release`) will cause Job B to silently never run. Keep them in one file.
 
 **Job A: `release-please`**
 - Runs `googleapis/release-please-action@v4` against `release-please-config.json`.
-- Outputs whether a release was created.
+- The action defaults to `secrets.GITHUB_TOKEN` — no explicit `token:` input needed for basic operation.
+- Outputs `releases_created` (boolean) and `release_created` per package.
 
-**Job B: `publish-to-release-branch`** (depends on Job A, runs only if Job A created a release)
+**Job B: `publish-to-release-branch`** (depends on Job A; runs only if `needs.release-please.outputs.releases_created == 'true'`)
 
 Critical: build into a temp directory *outside* the working tree so a subsequent `git checkout release` does not wipe it.
 
 Steps:
 1. `actions/checkout@v4` with `fetch-depth: 0` (full history, both branches).
-2. `bash scripts/validate.sh` (belt and suspenders).
+2. `bash scripts/validate.sh` (belt and suspenders — validates source before build).
 3. `STAGING=$(mktemp -d) && bash scripts/build.sh && cp -R dist/* "$STAGING/"` — copy build output to a path outside the repo so the next checkout cannot delete it.
 4. `git checkout release`.
 5. `git rm -rf .` then `cp -R "$STAGING"/. .`.
 6. `git config user.name "release-bot" && git config user.email "release-bot@users.noreply.github.com"`.
 7. `git add -A && git commit -m "chore(release): publish $GITHUB_SHA"`.
 8. `git push origin release`.
+9. Smoke test: `jq -e '.plugins | length > 0' .claude-plugin/marketplace.json` — fails the workflow if the published marketplace has an empty plugins array (guards against a broken build silently publishing an empty release).
 
 Permissions block at the top of the workflow:
 ```yaml
@@ -527,7 +555,7 @@ permissions:
   pull-requests: write
 ```
 
-Verification: Push a `feat(bb-triage):` commit to `main`. release-please opens a PR. Merge it. The workflow runs Job B, publishes to `release`, and `marketplace.json` on `release` reflects the new version.
+Verification: Push a `feat(bb-triage):` commit to `main`. release-please opens a PR. Merge it. The same workflow run's Job B publishes to `release`. Confirm: (a) `marketplace.json` on `release` has the bumped version, (b) the smoke test step passed in the Actions log, (c) `plugin.json` in the `release` branch shows the new version (confirms `extra-files` is working).
 
 ---
 
@@ -540,12 +568,23 @@ If release-please fails (config error, transient API failure, GitHub Actions out
 
 If the release workflow fails, publish manually from your laptop:
 
+    # 1. Guard: must be on main with a clean working tree
+    git diff --quiet && git diff --cached --quiet \
+      || { echo "Working tree dirty — commit or stash first"; exit 1; }
+    git checkout main && git pull origin main
+
+    # 2. Bump the affected plugin's version in plugin.json, then commit
+    #    (e.g. edit packages/bb-triage/.claude-plugin/plugin.json)
+    #    Also update .release-please-manifest.json to match.
+    #    Commit: git add ... && git commit -m "chore(bb-triage): bump version to X.Y.Z"
+
+    # 3. Build and stage output outside the repo
     bash scripts/validate.sh
     bash scripts/build.sh
-
     STAGING=$(mktemp -d)
     cp -R dist/* "$STAGING/"
 
+    # 4. Publish to release branch
     git checkout release
     git rm -rf .
     cp -R "$STAGING"/. .
@@ -553,15 +592,127 @@ If the release workflow fails, publish manually from your laptop:
     git commit -m "chore(release): manual publish $(date -u +%Y-%m-%dT%H:%M:%SZ)"
     git push origin release
     git checkout main
-
-Bump the affected plugin's version in its plugin.json before running this, and update .release-please-manifest.json so the next automated release picks the right next version.
 ```
 
 Verification: The manual release section exists in `CLAUDE.md`.
 
 ---
 
-**Phase 3 done when:** Merging a feature commit to `main` opens a release PR; merging the release PR publishes to `release`; the manual fallback is documented.
+### Step 3.7 — Write local git hooks (`pre-push` + `post-merge`)
+
+Two hooks live in `.git/hooks/`. They are not committed to the repo (`.git/` is never tracked), so each developer installs them once by running `bash scripts/install-hooks.sh`.
+
+**`.git/hooks/pre-push`** — blocks pushes to `main` if `validate.sh` fails:
+
+```bash
+#!/usr/bin/env bash
+protected_branch="main"
+current_branch=$(git symbolic-ref HEAD 2>/dev/null | sed 's|refs/heads/||')
+
+if [ "$current_branch" = "$protected_branch" ]; then
+  echo "→ Pushing to main — running validate.sh..."
+  bash scripts/validate.sh || {
+    echo "ERROR: validate.sh failed — push blocked. Fix errors above and retry."
+    exit 1
+  }
+fi
+```
+
+**`.git/hooks/post-merge`** — rebuilds `dist/` automatically after every merge:
+
+```bash
+#!/usr/bin/env bash
+echo "→ post-merge: rebuilding dist/..."
+bash scripts/validate.sh && bash scripts/build.sh \
+  && echo "→ dist/ is up to date." \
+  || echo "WARNING: rebuild failed — run 'bash scripts/build.sh' manually before testing."
+```
+
+Note: `post-merge` exit code does not undo the merge, so a failed rebuild is a warning, not a blocker. The `pre-push` hook is the hard gate.
+
+**`.git/hooks/commit-msg`** — rejects commits whose message does not follow Conventional Commits:
+
+```bash
+#!/usr/bin/env bash
+msg=$(cat "$1")
+
+# Skip merge commits and release-please's own commits
+echo "$msg" | grep -qE "^(Merge |chore: release)" && exit 0
+
+pattern='^(feat|fix|chore|docs|refactor|ci|test)(\([a-z0-9-]+\))?(!)?: .{1,72}$'
+
+if ! echo "$msg" | grep -qE "$pattern"; then
+  echo ""
+  echo "ERROR: commit message does not follow Conventional Commits."
+  echo ""
+  echo "  Expected:  <type>(<scope>): <description>"
+  echo "  Got:       $msg"
+  echo ""
+  echo "  Examples:"
+  echo "    feat(bb-triage): add CVSS scoring to instance-provision"
+  echo "    fix(bb-triage): correct Shamu API endpoint in get-token.sh"
+  echo "    docs: update Phase 3 steps in IMPLEMENTATION-PLAN.md"
+  echo ""
+  echo "  See references/commit-conventions.md for the full guide."
+  exit 1
+fi
+```
+
+Two deliberate skips:
+- **Merge commits** — git auto-generates `Merge branch 'feat/...' into main`; blocking these would interrupt every merge.
+- **release-please commits** — it generates `chore: release X.Y.Z`; blocking those would break the release flow.
+
+Without this hook a malformed message like `added cvss scoring` silently reaches `main` and release-please ignores it — the version never bumps and there is no error anywhere.
+
+**`scripts/install-hooks.sh`** — one-time setup script (committed to the repo):
+
+```bash
+#!/usr/bin/env bash
+set -e
+HOOKS_DIR=".git/hooks"
+
+install_hook() {
+  local name="$1"
+  local src="scripts/hooks/$name"
+  local dst="$HOOKS_DIR/$name"
+  cp "$src" "$dst"
+  chmod +x "$dst"
+  echo "Installed $dst"
+}
+
+install_hook commit-msg
+install_hook pre-push
+install_hook post-merge
+echo "All hooks installed."
+```
+
+Store the hook source files at `scripts/hooks/commit-msg`, `scripts/hooks/pre-push`, and `scripts/hooks/post-merge` (committed, not executable in-repo — `install-hooks.sh` sets the bit). `.git/hooks/` itself is never committed.
+
+Add to `CLAUDE.md` dev guide:
+
+```markdown
+## Local git hooks
+
+Run once after cloning:
+
+    bash scripts/install-hooks.sh
+
+Installs three hooks:
+- `commit-msg` — rejects commits that don't follow Conventional Commits; blocks silent release-please no-ops
+- `pre-push` — runs `validate.sh` before any push to `main`; blocks on failure
+- `post-merge` — rebuilds `dist/` after every merge so your local sandbox stays current
+```
+
+Verification:
+1. `ls scripts/hooks/` shows `commit-msg`, `pre-push`, and `post-merge`.
+2. Run `bash scripts/install-hooks.sh` — confirm all three exist in `.git/hooks/` and are executable (`-rwxr-xr-x`).
+3. Commit-msg gate: try `git commit -m "added cvss scoring"` — confirm it is rejected with the format error. Retry with `git commit -m "feat(bb-triage): add CVSS scoring"` — confirm it passes.
+4. Pre-push gate: break `plugin.json`, try `git push origin main` — confirm it is blocked with the validate error. Restore and retry — confirm the push proceeds.
+5. Post-merge trigger: merge any branch into `main` locally — confirm `dist/` is rebuilt (check the timestamp on `dist/.claude-plugin/marketplace.json`).
+
+---
+
+**Phase 3 done when:** Merging a feature commit to `main` opens a release PR; merging the release PR publishes to `release`; the manual fallback is documented; local hooks are installed and verified.
 
 ---
 
@@ -589,7 +740,7 @@ Verification: `/plugin marketplace list` does not show `greyshell`.
 ### Step 4.3 — Add the marketplace
 
 ```
-/plugin marketplace add abhijit/security-engineer-toolkit
+/plugin marketplace add asinha2016/security-engineer-toolkit
 ```
 
 No `@branch` suffix needed — the GitHub default branch (`release`) is used.
@@ -663,13 +814,16 @@ Verification: `/plugin list` shows `bb-triage` at the new version. The change is
 | 2 | Phase 2 complete | ✅ |
 | 2 | 2.4 Build and install locally from sandbox | ✅ |
 | 2 | 2.5 Test the reload cycle | ✅ |
-| - | **Next session: skill refinement** — `git checkout -b feat/bb-triage-instance-provision` before editing skill files. Merge back to `main` before starting Phase 3. | |
-| 3 | 3.1 Create release branch with concrete placeholder | |
-| 3 | 3.2 Set release as GitHub default branch | |
-| 3 | 3.3 Write validate.yml | |
-| 3 | 3.4 Write release-please config files | |
-| 3 | 3.5 Write release.yml (build into temp dir) | |
-| 3 | 3.6 Document manual release fallback | |
+| - | **Next session: skill refinement** — `git checkout -b feat/bb-triage-instance-provision` before editing skill files. Merge back to `main` before starting Phase 3. | ✅ |
+| 3 | 3.1 Create release branch with concrete placeholder | ✅ |
+| 3 | 3.2 Set release as GitHub default branch | manual (GitHub UI) |
+| 3 | 3.3 Write validate.yml | ✅ |
+| 3 | 3.3.1 Enforce validate as required status check on main (GitHub UI) | manual (GitHub UI, after first CI run) |
+| 3 | 3.4 Write release-please config files (bb-triage only, with extra-files) | ✅ |
+| 3 | 3.5 Write release.yml (single workflow, Job A + Job B, smoke test) | ✅ |
+| 3 | 3.6 Document manual release fallback | ✅ |
+| 3 | 3.7 Write `scripts/hooks/commit-msg`, `pre-push`, `post-merge` + `install-hooks.sh` | ✅ |
+| 3 | 3.7 Update `CLAUDE.md` with hook install instructions | ✅ |
 | 4 | 4.1 Verify release is default on GitHub | |
 | 4 | 4.2 Open fresh session | |
 | 4 | 4.3 Add marketplace from terminal | |

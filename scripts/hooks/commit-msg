@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# Validate only the subject line (first line), not the body.
+subject=$(head -1 "$1")
+
+# Skip merge commits and release-please's own commits
+echo "$subject" | grep -qE "^(Merge |chore: release)" && exit 0
+
+pattern='^(feat|fix|chore|docs|refactor|ci|test)(\([a-z0-9-]+\))?(!)?: .{1,72}$'
+
+if ! echo "$subject" | grep -qE "$pattern"; then
+  echo ""
+  echo "ERROR: commit message does not follow Conventional Commits."
+  echo ""
+  echo "  Expected:  <type>(<scope>): <description>"
+  echo "  Got:       $subject"
+  echo ""
+  echo "  Examples:"
+  echo "    feat(bb-triage): add CVSS scoring to instance-provision"
+  echo "    fix(bb-triage): correct Shamu API endpoint in get-token.sh"
+  echo "    docs: update Phase 3 steps in IMPLEMENTATION-PLAN.md"
+  echo ""
+  echo "  See references/commit-conventions.md for the full guide."
+  exit 1
+fi

@@ -38,3 +38,43 @@ Use [Conventional Commits](https://www.conventionalcommits.org/):
 | Repo tooling | `chore: update validate.sh to check .mcp.json` |
 
 The `(<plugin>)` scope should match the directory name under `packages/`.
+
+## Manual release (fallback)
+
+If the release workflow fails, publish manually from your laptop:
+
+    # 1. Guard: must be on main with a clean working tree
+    git diff --quiet && git diff --cached --quiet \
+      || { echo "Working tree dirty — commit or stash first"; exit 1; }
+    git checkout main && git pull origin main
+
+    # 2. Bump the affected plugin's version in plugin.json, then commit
+    #    (e.g. edit packages/bb-triage/.claude-plugin/plugin.json)
+    #    Also update .release-please-manifest.json to match.
+    #    Commit: git add ... && git commit -m "chore(bb-triage): bump version to X.Y.Z"
+
+    # 3. Build and stage output outside the repo
+    bash scripts/validate.sh
+    bash scripts/build.sh
+    STAGING=$(mktemp -d)
+    cp -R dist/* "$STAGING/"
+
+    # 4. Publish to release branch
+    git checkout release
+    git rm -rf .
+    cp -R "$STAGING"/. .
+    git add -A
+    git commit -m "chore(release): manual publish $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    git push origin release
+    git checkout main
+
+## Local git hooks
+
+Run once after cloning:
+
+    bash scripts/install-hooks.sh
+
+Installs three hooks:
+- `commit-msg` — rejects commits that don't follow Conventional Commits; blocks silent release-please no-ops
+- `pre-push` — runs `validate.sh` before any push to `main`; blocks on failure
+- `post-merge` — rebuilds `dist/` after every merge so your local sandbox stays current

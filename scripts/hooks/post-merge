@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+echo "→ post-merge: rebuilding dist/..."
+bash scripts/validate.sh && bash scripts/build.sh \
+  && echo "→ dist/ is up to date." \
+  || echo "WARNING: rebuild failed — run 'bash scripts/build.sh' manually before testing."
